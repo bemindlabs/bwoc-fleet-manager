@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/bemindlabs/bwoc-fleet-manager/security/advisories/new
+    about: Please report security issues privately, not as public issues.
+  - name: BWOC Framework
+    url: https://github.com/bemindlabs/BWOC-Framework
+    about: Issues with the bwoc CLI itself belong in the framework repository.

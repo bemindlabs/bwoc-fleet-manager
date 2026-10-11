@@ -4,7 +4,19 @@
   "license": "Apache-2.0",
   "version": "0.1.0",
   "type": "module",
-  "description": "Global BWOC fleet manager — every workspace and agent on this machine in one view.",
+  "description": "Dashboard over the bwoc CLI for BWOC agent fleets — every workspace and agent in one view.",
+  "homepage": "https://github.com/bemindlabs/bwoc-fleet-manager#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bemindlabs/bwoc-fleet-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bemindlabs/bwoc-fleet-manager/issues"
+  },
+  "author": "BemindLabs (BeMind Technology)",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently -n api,ui,planner -c magenta,cyan,yellow \"pnpm dev:api\" \"pnpm dev:ui\" \"pnpm planner\"",
     "dev:api": "node server/index.mjs",

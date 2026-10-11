@@ -1,25 +1,89 @@
-# 🌿 Fleet Manager
+<div align="center">
 
-Every BWOC workspace and agent on this machine in one view — a Vite + React dashboard over a
-loopback-only Node sidecar that shells out to the `bwoc` CLI.
+# 🌿 BWOC Fleet Manager
 
-Built for the orchestrator's loop: **survey → route → delegate → report**. The overview answers
-"where does the fleet need me?", the workspace view answers "what's wrong here?", and the agent
-view is where a task actually gets handed off.
+**Every BWOC workspace and agent on a machine, in one dashboard.**
 
-## Run it
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![CI](https://github.com/bemindlabs/bwoc-fleet-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/bemindlabs/bwoc-fleet-manager/actions/workflows/ci.yml)
+[![Node](https://img.shields.io/badge/node-%E2%89%A5%2020-339933.svg)](package.json)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+</div>
+
+A Vite + React dashboard over a loopback-only Node sidecar that shells out to the
+[`bwoc`](https://github.com/bemindlabs/BWOC-Framework) CLI. Built for the orchestrator's loop:
+**survey → route → delegate → report**. The overview answers "where does the fleet need me?", the
+workspace view answers "what's wrong here?", and the agent view is where a task actually gets handed
+off.
+
+## Table of contents
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Requirements](#requirements)
+- [Configuration](#configuration)
+- [What it shows](#what-it-shows)
+- [Lifecycle — start · pause · stop](#lifecycle--start--pause--stop)
+- [Orchestrator — human need → fleet todos](#orchestrator--human-need--fleet-todos)
+- [Groups — Saṅgha teams](#groups--saṅgha-teams)
+- [Other actions](#other-actions-all-writes-are-confirmed-first)
+- [Docker stack](#docker-stack)
+- [Resource Protocol](#resource-protocol)
+- [Design notes](#design-notes)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Features
+
+- **Fleet overview** sorted by what needs attention first (doctor failures → health failures → warnings → backlog)
+- **Workspace and agent views** — registry, health signals, inbox, framework skills
+- **Lifecycle control** — start / pause / stop one agent, a selection, or a whole workspace
+- **Orchestrator** — turn one plain-language need into routed, owned todos
+- **Saṅgha teams** — shared task lists with optional plan approval
+- **Settings** — check the installed `bwoc` version and run an update
+- **Light and dark** themes via `prefers-color-scheme`
+
+## Quick start
 
 ```sh
+git clone https://github.com/bemindlabs/bwoc-fleet-manager.git
+cd bwoc-fleet-manager
 pnpm install
 pnpm dev          # API on :8791, UI on http://127.0.0.1:5290
 ```
 
-Production-ish (build once, single process serves both):
+Production-ish (build once, a single process serves both):
 
 ```sh
 pnpm build
 pnpm preview      # http://127.0.0.1:8791
 ```
+
+## Requirements
+
+- Node ≥ 20 and [pnpm](https://pnpm.io)
+- [`bwoc`](https://github.com/bemindlabs/BWOC-Framework) ≥ 2.33 on `PATH` (needs `--json` on `list` /
+  `fleet health` / `doctor` / `sessions` / `tasks` / `status`)
+
+## Configuration
+
+All configuration is by environment variable (see [`.env.example`](.env.example)).
+
+| Env | Default | Meaning |
+|---|---|---|
+| `PORT` | `8791` | API port |
+| `BIND_HOST` | `127.0.0.1` | API bind address (keep loopback — see [Security](#security)) |
+| `BWOC_BIN` | `bwoc` | Path to the CLI |
+| `BWOC_WORKSPACE_ROOT` | `~/Workspaces` | Where workspaces are discovered |
+| `BWOC_FRAMEWORK_SRC` | unset | Framework source checkout; used as the skill/plugin catalog and for update checks |
+| `SERVE_STATIC` | unset | `1` makes the API serve `dist/` too (used by `pnpm preview`) |
+| `BWOC_UPDATE_CMD` | unset | Command the Settings → *bwoc version* **Update** button runs (e.g. a script that pulls, rebuilds and verifies `bwoc`). Unset disables the button; *Check for updates* is always available |
+| `BWOC_PLANNER_URL` | unset | Host sidecar URL (`pnpm planner`); enables lifecycle, root agents and the gateway page |
+| `BWOC_GW_AGENT` / `BWOC_GW_RELAY` | unset | Gateway mesh identity and relay URL; the mesh stays off until both are set |
+
+Orchestrator settings are listed [below](#orchestrator--human-need--fleet-todos).
 
 ## What it shows
 
@@ -119,12 +183,11 @@ succession can be checked first.
 ```sh
 cp .env.example .env
 openssl rand -hex 32                # paste into BWOC_A2A_TOKEN
-docker compose up -d                # stack: as-026320040
+docker compose up -d
 docker compose --profile agents up -d   # + the agent daemon / gateway bridge
 ```
 
-Project name is this machine's computer name (`scutil --get ComputerName` → `AS-026320040`),
-lowercased because Docker requires it.
+The compose project is named `fleet-manager` (override with `COMPOSE_PROJECT_NAME`).
 
 | Service | Port (loopback) | What it is |
 |---|---|---|
@@ -134,7 +197,7 @@ lowercased because Docker requires it.
 | `a2a` | 41241 | `bwoc-a2a serve` — Agent Card discovery + JSON-RPC inbound |
 | `agentd` | — | `bwoc-agent --serve` (profile `agents`). It spawns `bwoc-gateway-recv` itself when an agent's `interconnect/gateway.toml` sets `enabled = true`, so the relay is configured per agent, not here |
 
-**The host `bwoc` binary cannot be reused.** It is macOS arm64 Mach-O. The images install
+**The host `bwoc` binary cannot be reused.** On a macOS arm64 host it is a Mach-O binary. The images install
 `bwoc`, `bwoc-agent` and `bwoc-harness` from the framework's Linux release tarball
 (`BWOC_RELEASE`, checked against the release `.sha256`). The release does not ship `bwoc-mqtt` or
 `bwoc-a2a`, so the `transport` image still compiles those two from the named build context
@@ -192,20 +255,16 @@ half). **claim/lease and offload are slice D and not shipped** — so the workin
 - **Full-width layout, no `max-width` caps** — the fleet table wants every pixel. Light and dark
   both supported via `prefers-color-scheme`.
 
-## Configuration
+## Security
 
-| Env | Default | Meaning |
-|---|---|---|
-| `PORT` | `8791` | API port |
-| `BWOC_BIN` | `bwoc` | Path to the CLI |
-| `BWOC_WORKSPACE_ROOT` | `~/Workspaces` | Where workspaces are discovered |
-| `SERVE_STATIC` | unset | `1` makes the API serve `dist/` too (used by `pnpm preview`) |
-| `BWOC_UPDATE_CMD` | unset | Shell command the Settings → *bwoc version* **Update** button runs (e.g. a script that pulls, rebuilds and verifies `bwoc`). Unset disables the button; *Check for updates* is always available |
+The API has no authentication — its reachability is the security boundary. Keep it on loopback
+(or a private network such as a tailnet) and never expose it publicly. To report a vulnerability,
+see [SECURITY.md](SECURITY.md).
 
-## Requirements
+## Contributing
 
-`bwoc` ≥ 2.33 on `PATH` (needs `--json` on `list` / `fleet health` / `doctor` / `sessions` /
-`tasks` / `status`), Node ≥ 20.
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md) first. Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

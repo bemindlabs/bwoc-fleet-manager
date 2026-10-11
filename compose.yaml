@@ -1,9 +1,7 @@
 # BWOC Fleet Manager — full connectivity stack.
 #
-# Stack name = this machine's computer name (`scutil --get ComputerName` →
-# AS-026320040), lowercased because Docker project names must be.
-# Override with `COMPOSE_PROJECT_NAME` or `docker compose -p <name>`.
-name: as-026320040
+# Project name. Override with `COMPOSE_PROJECT_NAME` or `docker compose -p <name>`.
+name: fleet-manager
 
 x-bwoc-env: &bwoc-env
   BWOC_WORKSPACE_ROOT: /workspaces
