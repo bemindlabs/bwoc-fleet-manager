@@ -1,0 +1,158 @@
+# BWOC Fleet Manager — full connectivity stack.
+#
+# Stack name = this machine's computer name (`scutil --get ComputerName` →
+# AS-026320040), lowercased because Docker project names must be.
+# Override with `COMPOSE_PROJECT_NAME` or `docker compose -p <name>`.
+name: as-026320040
+
+x-bwoc-env: &bwoc-env
+  BWOC_WORKSPACE_ROOT: /workspaces
+  BWOC_BIN: /usr/local/bin/bwoc
+  # The skill/plugin catalog lives in the framework source, not the binary — it
+  # is mounted read-only at /framework (installs copy OUT of it, never into it).
+  BWOC_FRAMEWORK_SRC: /framework
+  TZ: ${TZ:-Asia/Bangkok}
+
+# Every bwoc service needs the same view of the fleet. Mounted read-write:
+# the transports append to `inbox.jsonl` and the manager flips registry state.
+x-workspaces: &workspaces
+  - ${BWOC_WORKSPACE_ROOT_HOST:-${HOME}/Workspaces}:/workspaces
+  - ${BWOC_SRC:-../BWOC-Framework-build}:/framework:ro
+
+services:
+  # ---- the dashboard (UI + API sidecar in one process) ----
+  fleet-manager:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: runtime
+      args:
+        BWOC_RELEASE: ${BWOC_RELEASE:-v2026.9.26-0}
+    image: bwoc/fleet-manager:latest
+    container_name: fleet-manager
+    restart: unless-stopped
+    environment:
+      <<: *bwoc-env
+      PORT: 8791
+      SERVE_STATIC: "1"
+      # `localhost` inside a container is the container. The planner talks to
+      # Ollama on the host, so it must be addressed explicitly.
+      BWOC_HARNESS_ENDPOINT: ${BWOC_HARNESS_ENDPOINT:-http://host.docker.internal:11434/v1}
+      BWOC_HARNESS_MODEL: ${BWOC_HARNESS_MODEL:-gemma4:latest}
+      # Planning is delegated to a host-side sidecar (`pnpm planner`): the harness
+      # fail-closes in a container on kernel.yama.ptrace_scope=0, and that sysctl
+      # is not namespaced so it cannot be satisfied per-container.
+      BWOC_PLANNER_URL: ${BWOC_PLANNER_URL:-http://host.docker.internal:8792}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes: *workspaces
+    ports:
+      # Loopback-only: this API can start/stop agents and write inboxes and
+      # has no auth. Publishing it on 0.0.0.0 would expose fleet control.
+      - "127.0.0.1:${FLEET_MANAGER_PORT:-8791}:8791"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://0.0.0.0:8791/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---- MQTT broker: the transport bwoc-mqtt talks to ----
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: bwoc-mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    ports:
+      - "127.0.0.1:${MQTT_PORT:-1883}:1883"
+      - "127.0.0.1:${MQTT_WS_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 -h localhost >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---- MQTT → inbox bridge: subscribes and appends envelopes to agents ----
+  mqtt-bridge:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: transport
+      args:
+        BWOC_RELEASE: ${BWOC_RELEASE:-v2026.9.26-0}
+      # bwoc-mqtt / bwoc-a2a are not in the release — compiled from this checkout.
+      additional_contexts:
+        bwocsrc: ${BWOC_SRC:-../BWOC-Framework-build}
+    image: bwoc/transport:latest
+    container_name: bwoc-mqtt-bridge
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    environment:
+      <<: *bwoc-env
+      BWOC_MQTT_BROKER: mqtt://mosquitto:1883
+    volumes: *workspaces
+    # `bwoc/+/inbox` — one topic per agent; the bridge routes each envelope to
+    # the matching agent's inbox.jsonl inside the mounted workspace.
+    command:
+      - bwoc-mqtt
+      - serve
+      - --broker
+      - mqtt://mosquitto:1883
+      - --workspace
+      - /workspaces/${BWOC_MQTT_WORKSPACE:-learn-atlas}
+      - --topic
+      - ${BWOC_MQTT_TOPIC:-bwoc/+/inbox}
+
+  # ---- A2A: Agent Card discovery + JSON-RPC inbound over HTTP ----
+  a2a:
+    image: bwoc/transport:latest
+    container_name: bwoc-a2a
+    restart: unless-stopped
+    depends_on:
+      - fleet-manager
+    environment:
+      <<: *bwoc-env
+      # A non-loopback bind (0.0.0.0 inside the container) is refused without
+      # a token — set BWOC_A2A_TOKEN in .env before exposing this.
+      BWOC_A2A_TOKEN: ${BWOC_A2A_TOKEN:?set BWOC_A2A_TOKEN in .env — a non-loopback A2A listener refuses to start unauthenticated}
+    volumes: *workspaces
+    ports:
+      - "127.0.0.1:${A2A_PORT:-41241}:41241"
+    command:
+      - bwoc-a2a
+      - serve
+      - ${A2A_AGENT:-agent-prime}
+      - --workspace
+      - /workspaces/${A2A_WORKSPACE:-learn-atlas}
+      - --bind
+      - 0.0.0.0
+      - --port
+      - "41241"
+
+  # ---- agent daemon: also supervises the gateway receive-bridge ----
+  # Opt-in (`--profile agents`). `bwoc-agent --serve` spawns bwoc-gateway-recv
+  # itself when the agent's interconnect/gateway.toml has enabled = true, so
+  # the relay connection is configured per agent, not here.
+  agentd:
+    image: bwoc/transport:latest
+    container_name: bwoc-agentd
+    restart: unless-stopped
+    profiles: ["agents"]
+    environment: *bwoc-env
+    volumes: *workspaces
+    working_dir: /workspaces/${AGENTD_WORKSPACE:-learn-atlas}
+    command:
+      - bwoc-agent
+      - --serve
+      - --agent
+      - ${AGENTD_AGENT:-agent-prime}
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:

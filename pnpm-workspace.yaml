@@ -1,0 +1,4 @@
+# esbuild ships its platform binary via a postinstall script — Vite cannot
+# build or serve without it, so this one build is allowed deliberately.
+allowBuilds:
+  esbuild: true
