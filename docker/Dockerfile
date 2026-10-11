@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
  && cp target/release/bwoc-mqtt target/release/bwoc-a2a /out/
 
 # ---- UI build ----
-FROM node:24-bookworm-slim AS ui
+FROM node:25-bookworm-slim AS ui
 WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -50,7 +50,7 @@ RUN pnpm build
 
 # ---- runtime ----
 # The release binaries need glibc >= 2.39; bookworm has 2.36, trixie 2.41.
-FROM node:24-trixie-slim AS runtime
+FROM node:25-trixie-slim AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates tini \
  && rm -rf /var/lib/apt/lists/*
