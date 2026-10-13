@@ -15,7 +15,7 @@
   },
   "author": "BemindLabs (BeMind Technology)",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "scripts": {
     "dev": "concurrently -n api,ui,planner -c magenta,cyan,yellow \"pnpm dev:api\" \"pnpm dev:ui\" \"pnpm planner\"",

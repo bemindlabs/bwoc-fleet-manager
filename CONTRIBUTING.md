@@ -12,7 +12,7 @@ By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Development setup
 
-Requirements: Node ≥ 20, [pnpm](https://pnpm.io), and the [`bwoc`](https://github.com/bemindlabs/BWOC-Framework) CLI (≥ 2.33) on `PATH`.
+Requirements: Node ≥ 22.12, [pnpm](https://pnpm.io), and the [`bwoc`](https://github.com/bemindlabs/BWOC-Framework) CLI (≥ 2.33) on `PATH`.
 
 ```sh
 pnpm install
