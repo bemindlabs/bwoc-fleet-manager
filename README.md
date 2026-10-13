@@ -69,7 +69,10 @@ pnpm preview      # http://127.0.0.1:8791
 
 ## Configuration
 
-All configuration is by environment variable (see [`.env.example`](.env.example)).
+All configuration is by environment variable. The table below is for running on the host
+(`pnpm dev` / `pnpm preview`): the app reads these straight from the process environment and
+does not load a `.env` file. [`.env.example`](.env.example) is a different list — it configures
+the Docker Compose stack and uses its own variable names.
 
 | Env | Default | Meaning |
 |---|---|---|
