@@ -6,7 +6,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![CI](https://github.com/bemindlabs/bwoc-fleet-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/bemindlabs/bwoc-fleet-manager/actions/workflows/ci.yml)
-[![Node](https://img.shields.io/badge/node-%E2%89%A5%2020-339933.svg)](package.json)
+[![Node](https://img.shields.io/badge/node-%E2%89%A5%2022.12-339933.svg)](package.json)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
@@ -63,7 +63,7 @@ pnpm preview      # http://127.0.0.1:8791
 
 ## Requirements
 
-- Node ≥ 20 and [pnpm](https://pnpm.io)
+- Node ≥ 22.12 and [pnpm](https://pnpm.io)
 - [`bwoc`](https://github.com/bemindlabs/BWOC-Framework) ≥ 2.33 on `PATH` (needs `--json` on `list` /
   `fleet health` / `doctor` / `sessions` / `tasks` / `status`)
 
