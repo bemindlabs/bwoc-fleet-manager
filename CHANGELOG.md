@@ -6,6 +6,8 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-14
+
 ### Added
 - Settings → *bwoc version*: check for updates and run an update via `BWOC_UPDATE_CMD`.
 - Full-width footer.
@@ -24,5 +26,6 @@ aims to follow [Semantic Versioning](https://semver.org/).
 
 - Initial public release under Apache-2.0.
 
-[Unreleased]: https://github.com/bemindlabs/bwoc-fleet-manager/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/bemindlabs/bwoc-fleet-manager/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/bemindlabs/bwoc-fleet-manager/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/bemindlabs/bwoc-fleet-manager/releases/tag/v0.1.0
