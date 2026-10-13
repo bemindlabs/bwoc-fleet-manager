@@ -13,6 +13,7 @@ import * as files from './files.mjs'
 import { checkUpdate, jobStatus, startUpdate, updateEnabled } from './updater.mjs'
 import { getJob, listJobs, startOrchestration } from './orchestrator.mjs'
 import { catalog, resolveCatalogPath, runtimeSettings, workspaceFrameworks } from './frameworks.mjs'
+import { sidecarUrl } from './proxy.mjs'
 
 const PORT = Number(process.env.PORT || 8791)
 // Loopback by default so a bare-metal run is never exposed. In a container the
@@ -434,9 +435,10 @@ const server = http.createServer(async (req, res) => {
     if (seg[1] === 'root') {
       const base = process.env.BWOC_PLANNER_URL
       if (!base) return send(res, 503, { error: 'root agents need the host sidecar (BWOC_PLANNER_URL unset)' })
-      const sub = seg.slice(2).join('/') || 'agents'
+      const sub = seg.length > 2 ? seg.slice(2) : ['agents']
+      const target = sidecarUrl(base, '/root/', sub, url.search)
       try {
-        const upstream = await fetch(new URL(`/root/${sub}${url.search}`, base), {
+        const upstream = await fetch(target, {
           signal: AbortSignal.timeout(20_000),
         })
         return send(res, upstream.status, await upstream.json())
@@ -457,8 +459,8 @@ const server = http.createServer(async (req, res) => {
           error: 'gateway needs the host sidecar (BWOC_PLANNER_URL unset) — start it with `pnpm planner`',
         })
       }
-      const sub = seg.slice(2).join('/') || 'status'
-      const target = new URL(`/gateway/${sub}${url.search}`, base)
+      const sub = seg.length > 2 ? seg.slice(2) : ['status']
+      const target = sidecarUrl(base, '/gateway/', sub, url.search)
       try {
         const init = { method: req.method, signal: AbortSignal.timeout(60_000) }
         if (req.method === 'POST') {
@@ -615,8 +617,15 @@ const server = http.createServer(async (req, res) => {
 
     return send(res, 404, { error: `no route for ${req.method} ${url.pathname}` })
   } catch (err) {
-    const code = [400, 403, 404, 409, 413].includes(err?.code) ? err.code : 500
-    return send(res, code, { error: err.message || String(err) })
+    if ([400, 403, 404, 409, 413].includes(err?.code)) {
+      return send(res, err.code, { error: err.message || String(err) })
+    }
+    // A failed `bwoc` call: its stderr is what the operator needs to see.
+    if (err instanceof bwoc.BwocError) return send(res, 500, { error: err.message })
+    // Anything else is a bug here. Its message can carry internal paths, so it
+    // goes to the log and the caller gets a pointer to it.
+    console.error(`[fleet-manager] ${req.method} ${url.pathname} failed:`, err)
+    return send(res, 500, { error: 'internal error — see the fleet-manager server log' })
   }
 })
 

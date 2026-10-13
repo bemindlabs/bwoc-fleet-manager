@@ -15,6 +15,11 @@ aims to follow [Semantic Versioning](https://semver.org/).
 - Gateway mesh has no built-in identity or relay; set `BWOC_GW_AGENT` and `BWOC_GW_RELAY` to enable it.
 - Docker Compose project is named `fleet-manager`.
 
+### Security
+- Sub-paths forwarded to the host sidecar (`/api/root/*`, `/api/gateway/*`) are validated segment by segment and must stay on the sidecar origin under their prefix.
+- Unexpected server errors no longer return their message to the caller; it goes to the server log. `bwoc` failures and 4xx messages are unchanged.
+- Declared Node floor is 22.12 (required by Vite 8 and concurrently 10).
+
 ## [0.1.0]
 
 - Initial public release under Apache-2.0.
