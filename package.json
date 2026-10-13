@@ -2,7 +2,7 @@
   "name": "fleet-manager",
   "private": true,
   "license": "Apache-2.0",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Dashboard over the bwoc CLI for BWOC agent fleets — every workspace and agent in one view.",
   "homepage": "https://github.com/bemindlabs/bwoc-fleet-manager#readme",
