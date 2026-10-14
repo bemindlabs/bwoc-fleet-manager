@@ -163,8 +163,9 @@ A team is a named subset of agents sharing a task list. The workspace view can:
 - **Create** a team from the current table selection (members are validated against the registry
   first — that's how the dangling membership in the pre-existing teams happened)
 - **Start / Pause / Stop all** members of a team in one action, skipping members that don't resolve
-- **Add tasks** to the shared list, optionally `--requires-plan` (Pavāraṇā: the lead must approve a
-  plan before the claimant may complete it)
+- **Add tasks** to the shared list. Tick *requires plan* to keep bwoc's plan gate (Pavāraṇā: the
+  lead must approve a plan before the claimant may complete it); left unticked, the task is added
+  with `--no-plan`
 - **Retire** a team — removes its membership file and task list, leaving the agents untouched
 
 Members shown with a `?` are named in the team file but not registered in this workspace; group
